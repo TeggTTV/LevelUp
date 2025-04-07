@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 
-interface CalandarProps {
+interface CalanderProps {
 	changeDay: (event: MouseEvent) => void;
 }
 
-export default function Calandar({ changeDay }: CalandarProps) {
+export default function Calendar({ changeDay }: CalanderProps) {
 	const [display, setDisplay] = useState('');
 	const [days, setDays] = useState<HTMLDivElement[]>([]);
 

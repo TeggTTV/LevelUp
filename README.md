@@ -33,6 +33,7 @@
 
 ---
 
+<!-- ! NEEDS UPDATING EVENTUALLY -->
 ### **Tech Stack**
 - **Frontend:** React Native (for mobile app), React (for web app)
 - **Backend:** Firebase (authentication, database, real-time notifications)
