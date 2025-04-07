@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Footer from '@/components/Footer';
 import Navbar from '@/components/Navbar';
 import '@/styles/globals.css';
-import { addEvent, deleteEvent, editEvent, Event, getEvents } from '@/util';
+import {
+	addEvent,
+	deleteEvent,
+	editEvent,
+	Event,
+	getEvents,
+	addTag,
+	getTags,
+	Tag,
+} from '@/util';
 import { faPlus } from '@fortawesome/free-solid-svg-icons/faPlus';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
@@ -23,10 +31,14 @@ export default function Calendar() {
 	const [editDesc, setEditDesc] = useState('');
 	const [editTime, setEditTime] = useState('');
 
+	const [tags, setTags] = useState<Tag[]>([]);
+	const [newTagName, setNewTagName] = useState('');
+	const [selectedTagColors, setSelectedTagColors] = useState<string[]>([]);
 
 	useEffect(() => {
 		// Delay rendering to avoid hydration issues
 		setHasMounted(true);
+		setTags(getTags());
 	}, []);
 
 	const display = useMemo(() => {
@@ -44,7 +56,10 @@ export default function Calendar() {
 		const numberOfDays = lastDay.getDate();
 
 		const placeholders = Array.from({ length: firstDayIndex }, () => null);
-		const actualDays = Array.from({ length: numberOfDays }, (_, i) => new Date(year, month, i + 1));
+		const actualDays = Array.from(
+			{ length: numberOfDays },
+			(_, i) => new Date(year, month, i + 1)
+		);
 
 		return [...placeholders, ...actualDays];
 	}, [year, month]);
@@ -85,6 +100,29 @@ export default function Calendar() {
 		return getEvents(date).length > 0;
 	}, []);
 
+	const getEventColors = useCallback((date: Date) => {
+		const events = getEvents(date);
+		return events.map((event: Event) => event.tagColor || 'gray'); // Default to gray if no tag color
+	}, []);
+
+	const handleColorClick = (color: string) => {
+		if (selectedTagColors.includes(color)) {
+			setSelectedTagColors(selectedTagColors.filter((c) => c !== color));
+		} else {
+			setSelectedTagColors([...selectedTagColors, color]);
+		}
+	};
+
+	const handleAddTag = () => {
+		if (newTagName.trim() && selectedTagColors.length > 0) {
+			selectedTagColors.forEach((color) => {
+				const newTag = addTag(newTagName.trim(), color);
+				setTags([...tags, newTag]);
+			});
+			setNewTagName('');
+			setSelectedTagColors([]);
+		}
+	};
 
 	// ✅ Render only after mount to prevent mismatch
 	if (!hasMounted) return null;
@@ -111,11 +149,16 @@ export default function Calendar() {
 					</header>
 
 					<div className="grid grid-cols-7 mt-2 text-lg">
-						{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-							<div key={d} className="justify-self-center w-8 h-8 flex items-center justify-center opacity-50 rounded-full">
-								{d}
-							</div>
-						))}
+						{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(
+							(d) => (
+								<div
+									key={d}
+									className="justify-self-center w-8 h-8 flex items-center justify-center opacity-50 rounded-full"
+								>
+									{d}
+								</div>
+							)
+						)}
 					</div>
 
 					<div className="grid grid-cols-7 gap-1 mt-1">
@@ -123,13 +166,15 @@ export default function Calendar() {
 							<div
 								key={index}
 								className={`relative w-8 h-8 rounded-full flex items-center justify-center cursor-pointer justify-self-center self-center
-		${day
-										? isToday(day)
-											? 'bg-blue-500 text-white'
-											: isSelected(day)
-												? 'bg-blue-500/30 rounded-sm'
-												: ''
-										: ''}`}
+		${
+			day
+				? isToday(day)
+					? 'bg-blue-500 text-white'
+					: isSelected(day)
+					? 'bg-blue-500/30 rounded-sm'
+					: ''
+				: ''
+		}`}
 								onClick={() => {
 									if (day) {
 										setEditingIdx(null); // Close any open edit mode
@@ -143,10 +188,27 @@ export default function Calendar() {
 							>
 								{day ? day.getDate() : ''}
 								{day && hasEvent(day) && (
-									<span className="absolute bottom-0 w-1.5 h-1.5 bg-blue-500 rounded-full" />
+									<div className="absolute bottom-0 flex space-x-1">
+										{getEventColors(day)
+											.slice(0, 3)
+											.map(
+												(
+													color: string,
+													idx: number
+												) => (
+													<span
+														key={idx}
+														className="w-1.5 h-1.5 rounded-full"
+														style={{
+															backgroundColor:
+																color,
+														}}
+													/>
+												)
+											)}
+									</div>
 								)}
 							</div>
-
 						))}
 					</div>
 				</div>
@@ -162,8 +224,10 @@ export default function Calendar() {
 
 				<div className="w-full mt-4 max-h-[300px] overflow-y-auto space-y-2 pr-1">
 					{getEvents(selectedDate).map((e: Event, idx: number) => {
-
-						const handleEditClick = (event: Event, index: number): void => {
+						const handleEditClick = (
+							event: Event,
+							index: number
+						): void => {
 							// if already editing, close the current edit
 							if (editingIdx === index) {
 								setEditingIdx(null);
@@ -172,17 +236,23 @@ export default function Calendar() {
 							setEditingIdx(index);
 							setEditTitle(event.title);
 							setEditDesc(event.description);
-							setEditTime(new Date(event.deadline).toTimeString().slice(0, 5)); // "HH:MM"
+							setEditTime(
+								new Date(event.deadline)
+									.toTimeString()
+									.slice(0, 5)
+							); // "HH:MM"
 						};
 
 						const handleSaveEdit = (oldEvent: Event): void => {
 							const newEvent: Partial<Event> = {
 								title: editTitle,
 								description: editDesc,
-								deadline: new Date(selectedDate.setHours(
-									parseInt(editTime.split(':')[0]),
-									parseInt(editTime.split(':')[1])
-								)),
+								deadline: new Date(
+									selectedDate.setHours(
+										parseInt(editTime.split(':')[0]),
+										parseInt(editTime.split(':')[1])
+									)
+								),
 							};
 							editEvent({ ...oldEvent, ...newEvent });
 							setEditingIdx(null);
@@ -191,14 +261,72 @@ export default function Calendar() {
 						return (
 							<div
 								key={idx}
-								className="w-full p-4 bg-white shadow-xl rounded-lg transition duration-75 focus:scale-[1.01] hover:shadow-2xl"
-
+								className="p-6 bg-white rounded-lg shadow-md border-l-4"
+								style={{ borderColor: e.tagColor || 'gray' }}
 							>
-								<div onClick={() => handleEditClick(e, idx)} className="text-lg font-semibold flex justify-between">
-									<div>{e.title}</div>
-									<div>{new Date(e.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+								<div
+									onClick={() => handleEditClick(e, idx)}
+									className="text-lg font-semibold flex justify-between"
+								>
+									<h2 className="text-xl font-bold mb-2">
+										{e.title}
+									</h2>
+									<div>
+										{new Date(
+											e.deadline
+										).toLocaleTimeString([], {
+											hour: '2-digit',
+											minute: '2-digit',
+										})}
+									</div>
 								</div>
-								<div className="text-md text-gray-600 mt-2">{e.description}</div>
+								<p className="text-sm text-gray-600 mb-4">
+									{e.description}
+								</p>
+								<div className="flex justify-between items-center">
+									{e.tagColor ? (
+										<span
+											className={`px-3 py-1 text-sm rounded-full`}
+											style={{
+												backgroundColor:
+													e.tagColor || 'gray',
+												color: 'white',
+											}}
+										>
+											{tags
+												.filter(
+													(tag) =>
+														tag.color === e.tagColor
+												)
+												.map((tag) => (
+													<span
+														key={tag.color}
+														className="px-3 py-1 text-sm rounded-full text-white"
+														style={{
+															backgroundColor:
+																tag.color,
+														}}
+													>
+														{tag.name}
+													</span>
+												))}
+										</span>
+									) : (
+										''
+									)}
+									<span className="text-gray-500 text-sm">
+										{new Date(e.deadline).toLocaleString(
+											[],
+											{
+												weekday: 'long',
+												month: 'short',
+												day: 'numeric',
+												hour: '2-digit',
+												minute: '2-digit',
+											}
+										)}
+									</span>
+								</div>
 
 								{editingIdx === idx && (
 									<div className="mt-4 space-y-2">
@@ -209,7 +337,9 @@ export default function Calendar() {
 											className="w-full border rounded p-2"
 											placeholder="Edit title"
 											value={editTitle}
-											onChange={(e) => setEditTitle(e.target.value)}
+											onChange={(e) =>
+												setEditTitle(e.target.value)
+											}
 										/>
 										<label className="p-2 text-sm font-medium text-gray-700">
 											Description
@@ -217,7 +347,9 @@ export default function Calendar() {
 												className="w-full border rounded p-2"
 												placeholder="Edit description"
 												value={editDesc}
-												onChange={(e) => setEditDesc(e.target.value)}
+												onChange={(e) =>
+													setEditDesc(e.target.value)
+												}
 											/>
 										</label>
 										<label className="p-2 text-sm font-medium text-gray-700">
@@ -228,12 +360,16 @@ export default function Calendar() {
 											placeholder="Edit time"
 											className="w-full border rounded p-2 mb-4"
 											value={editTime}
-											onChange={(e) => setEditTime(e.target.value)}
+											onChange={(e) =>
+												setEditTime(e.target.value)
+											}
 										/>
 										<div className="flex justify-between">
 											<button
 												className="text-blue-500 border border-blue-500 px-4 py-1 rounded"
-												onClick={() => setEditingIdx(null)}
+												onClick={() =>
+													setEditingIdx(null)
+												}
 											>
 												Cancel
 											</button>
@@ -241,27 +377,26 @@ export default function Calendar() {
 											<button
 												className="bg-red-500 text-white px-4 py-1 rounded"
 												onClick={() => {
-													deleteEvent(e);  // Call your deleteEvent function here
-													setEditingIdx(null);  // Close the edit mode after deleting
+													deleteEvent(e); // Call your deleteEvent function here
+													setEditingIdx(null); // Close the edit mode after deleting
 												}}
 											>
 												Delete
 											</button>
 											<button
 												className="bg-blue-500 text-white px-12 py-1 rounded"
-												onClick={() => handleSaveEdit(e)}
+												onClick={() =>
+													handleSaveEdit(e)
+												}
 											>
 												Save
 											</button>
-
 										</div>
 									</div>
 								)}
-
 							</div>
 						);
 					})}
-
 				</div>
 			</div>
 			{showModal && (
@@ -273,72 +408,153 @@ export default function Calendar() {
 						className="bg-white rounded-2xl p-6 w-80 space-y-2 shadow-xl"
 						onClick={(e) => e.stopPropagation()} // Prevent click inside modal from closing it
 					>
-						<h2 className="text-xl font-bold text-blue-500">New Event</h2>
-						<p className="text-sm text-gray-600 mb-4">Add an event for {selectedDate.toLocaleDateString()}</p>
+						<h2 className="text-xl font-bold text-blue-500">
+							New Event
+						</h2>
+						<p className="text-sm text-gray-600 mb-4">
+							Add an event for {selectedDate.toLocaleDateString()}
+						</p>
 
 						{/* Title, Description and Time Inputs */}
 
-						<label className="p-2 text-sm font-medium text-gray-700 mb-1">
-							Title
-						</label>
-						<input
-							type="text"
-							placeholder="Title"
-							value={newTitle}
-							onChange={(e) => setNewTitle(e.target.value)}
-							className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						/>
-						<label className="p-2 text-sm font-medium text-gray-700">
-							Description
-						</label>
-						<textarea
-							placeholder="Description"
-							value={newDesc}
-							onChange={(e) => setNewDesc(e.target.value)}
-							className="w-full mb-0 border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						/>
-						<label className="p-2 text-sm font-medium text-gray-700">
-							Time
-						</label>
-						<input
-							type="time"
-							placeholder="Select time"
-							value={newTime}
-							onChange={(e) => setNewTime(e.target.value)}
-							className="w-full border rounded mb-4 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						/>
-						<div className="flex justify-between">
-							<button
-								className="text-blue-500 border border-blue-500 px-4 py-2 rounded"
-								onClick={() => setShowModal(false)}
-							>
-								Cancel
-							</button>
-							<button
-								className="text-white bg-blue-500 px-4 py-2 rounded"
-								onClick={() => {
-									// 🔧 Add logic here to save the event
+						<form
+							className="space-y-4"
+							onSubmit={(e) => {
+								e.preventDefault();
+								selectedTagColors.forEach((color) => {
 									addEvent(
 										selectedDate,
-										newTitle.trim() || 'Untitled Event', // Default title if empty
-										newDesc.trim() || 'No description provided', // Default description if empty
-										newTime ? new Date(selectedDate.setHours(parseInt(newTime.split(':')[0]), parseInt(newTime.split(':')[1]))) : new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0) // Default time if empty (midnight)
+										newTitle.trim() || 'Untitled Event',
+										newDesc.trim() ||
+											'No description provided',
+										newTime
+											? new Date(
+													selectedDate.setHours(
+														parseInt(
+															newTime.split(
+																':'
+															)[0]
+														),
+														parseInt(
+															newTime.split(
+																':'
+															)[1]
+														)
+													)
+											  )
+											: new Date(
+													selectedDate.getFullYear(),
+													selectedDate.getMonth(),
+													selectedDate.getDate(),
+													0,
+													0
+											  ),
+										color, // Include tag color
+										tags.find((tag) => tag.color === color)
+											?.name || 'No Tag' // Use tag name
 									);
+								});
+								setShowModal(false);
+								setNewTitle('');
+								setNewDesc('');
+								setNewTime('');
+								setSelectedTagColors([]);
+							}}
+						>
+							<label className="p-2 text-sm font-medium text-gray-700 mb-1">
+								Title
+							</label>
+							<input
+								type="text"
+								placeholder="Title"
+								value={newTitle}
+								onChange={(e) => setNewTitle(e.target.value)}
+								className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+							/>
+							<label className="p-2 text-sm font-medium text-gray-700">
+								Description
+							</label>
+							<textarea
+								placeholder="Description"
+								value={newDesc}
+								onChange={(e) => setNewDesc(e.target.value)}
+								className="w-full mb-0 border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+							/>
+							<label className="p-2 text-sm font-medium text-gray-700">
+								Time
+							</label>
+							<input
+								type="time"
+								placeholder="Select time"
+								value={newTime}
+								onChange={(e) => setNewTime(e.target.value)}
+								className="w-full border rounded mb-4 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+							/>
+							<div>
+								<label
+									htmlFor="newTagName"
+									className="block mb-2 text-sm font-medium text-gray-900"
+								>
+									Create New Tag
+								</label>
+								<input
+									type="text"
+									id="newTagName"
+									placeholder="Tag Name"
+									value={newTagName}
+									onChange={(e) =>
+										setNewTagName(e.target.value)
+									}
+									className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5 focus:ring-blue-500 focus:border-blue-500"
+								/>
+								<div className="flex space-x-2 mt-2">
+									{[
+										'red',
+										'orange',
+										'yellow',
+										'green',
+										'blue',
+										'indigo',
+										'violet',
+										'pink',
+										'teal',
+										'gray',
+									].map((color) => (
+										<div
+											key={color}
+											className={`w-6 h-6 rounded-full cursor-pointer border-2 ${
+												selectedTagColors.includes(
+													color
+												)
+													? 'border-black'
+													: 'border-transparent'
+											}`}
+											style={{ backgroundColor: color }}
+											onClick={() =>
+												handleColorClick(color)
+											}
+										/>
+									))}
+								</div>
+								<button
+									type="button"
+									onClick={handleAddTag}
+									className="mt-2 w-full text-white bg-green-500 hover:bg-green-600 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5"
+								>
+									Add Tag
+								</button>
+							</div>
 
-									setShowModal(false);
-									setNewTitle('');
-									setNewDesc('');
-									setNewTime('');
-								}}
+							<button
+								type="submit"
+								className="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5"
 							>
-								Save
+								Save Event
 							</button>
-						</div>
+						</form>
 					</div>
 				</div>
 			)}
-
-			<Footer />
 		</>
 	);
 }
