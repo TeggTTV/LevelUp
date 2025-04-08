@@ -1,50 +1,40 @@
-// import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCalendar, faHome, faUser } from '@fortawesome/free-solid-svg-icons';
 
 export default function Navbar() {
-	// const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-	// const toggleMenu = () => {
-	// 	setIsMenuOpen(!isMenuOpen);
-	// };
+	const router = useRouter();
+	const currentPath = router.pathname;
 
 	return (
-		<div className="fixed w-screen h-14 flex items-center justify-between px-4">
-			<Link href="/dashboard" className="text-xl font-bold"></Link>
-
-			{/* Hamburger Menu Icon for smaller screens */}
-			{/* <div className="lg:hidden flex items-center" onClick={toggleMenu}>
-				<button className="text-2xl">☰</button>
-			</div> */}
-
-			{/* Links Container */}
-			{/* <div
-				className={`flex gap-4 lg:flex lg:items-center ${
-					isMenuOpen
-						? // ? 'absolute flex-col top-15 right-4 block text-right pl-4 pb-4 rounded-lg'
-						  'z-100 absolute w-screen h-full flex-col top-14 left-0 pr-4 text-right block bg-white'
-						: 'hidden'
-				} lg:block`}
-			>
-				<Link className="text-lg" href={'/dashboard'}>
-					Dashboard
+		<nav className="fixed bottom-0 left-0 right-0 bg-white shadow-t-md py-2 px-4">
+			<div className="max-w-7xl mx-auto flex justify-around items-center">
+				<Link href="/profile">
+					<div
+						className={`p-2 flex flex-col items-center text-sm ${currentPath === '/profile' ? 'text-blue-600 border-b-2 border-b-blue-500' : 'text-gray-600'
+							} hover:text-blue-600 transition-colors`}
+					>
+						<FontAwesomeIcon icon={faUser} className="text-xl" />
+					</div>
 				</Link>
-				<Link className="text-lg" href={'/calendar'}>
-					Calendar
+				<Link href="/dashboard">
+					<div
+						className={`p-2 flex flex-col items-center text-sm ${currentPath === '/dashboard' ? 'text-blue-600 border-b-2 border-b-blue-500' : 'text-gray-600'
+							} hover:text-blue-600 transition-colors`}
+					>
+						<FontAwesomeIcon icon={faHome} className="text-xl" />
+					</div>
 				</Link>
-				<Link className="text-lg" href={'/leaderboard'}>
-					Leaderboard
+				<Link href="/calendar">
+					<div
+						className={`p-2 flex flex-col items-center text-sm ${currentPath === '/calendar' ? 'text-blue-600 border-b-2 border-b-blue-500' : 'text-gray-600'
+							} hover:text-blue-600 transition-colors`}
+					>
+						<FontAwesomeIcon icon={faCalendar} className="text-xl" />
+					</div>
 				</Link>
-				<Link className="text-lg" href={'/profile'}>
-					Profile
-				</Link>
-
-				<Link className="text-lg" href={'/getting-started'}>
-					<button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
-						Get Started
-					</button>
-				</Link>
-			</div> */}
-		</div>
+			</div>
+		</nav>
 	);
 }
